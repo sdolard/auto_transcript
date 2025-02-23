@@ -1,13 +1,18 @@
 #!/usr/bin/env fish
+# Replace current activation
+# source ./venv/bin/activate.fish
+# Use a Fish-compatible activation:
+set -lx VIRTUAL_ENV (pwd)/venv
+set -lx PATH $VIRTUAL_ENV/bin $PATH
 
-# Define the number of threads for certain operations
+# Setting the number of threads for some operations
 set -x OMP_NUM_THREADS 8
 
-# Directory containing the audio files and transcriptions
+# Directory containing audio files and transcripts
 set audio_dir ~/Transcriptions
 set log_file "$audio_dir/auto_transcribe.log"
 
-# Function to rotate the log with OS detection
+# Log rotation function with OS detection
 function rotate_log
     if test -f "$log_file"
         set uname (uname)
@@ -18,11 +23,10 @@ function rotate_log
         else
             set filesize (stat -f%z "$log_file")
         end
-
         if test $filesize -gt 5242880
             set timestamp (date "+%Y%m%d%H%M%S")
             mv "$log_file" "$audio_dir/auto_transcribe.log.$timestamp"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Log rotation: auto_transcribe.log renamed to auto_transcribe.log.$timestamp"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Log rotation: log file renamed."
         end
     end
 end
@@ -30,13 +34,12 @@ end
 rotate_log
 
 begin
-
-    # --- Global Lock to Prevent Concurrent Runs ---
+    # --- Global lock to prevent concurrent executions ---
     set global_lock /tmp/auto_transcribe.lock
     if test -f "$global_lock"
         set old_pid (cat "$global_lock")
         if ps -p $old_pid > /dev/null
-            echo (date "+%Y-%m-%d %H:%M:%S") "Another instance is running. Exiting."
+            echo (date "+%Y-%m-%d %H:%M:%S") "Another instance is already running. Exiting."
             exit 0
         else
             rm -f "$global_lock"
@@ -46,10 +49,10 @@ begin
     # Save the current PID in the lock file
     echo $fish_pid > "$global_lock"
 
-    # Remove the lock and terminate the process group on exit
+    # Remove the lock and terminate on exit
     trap 'kill -TERM -$fish_pid; rm -f "$global_lock"' EXIT
 
-    # Utility to get the base name without extension and prefix a date if necessary
+    # Function to get the base name of the file with a date prefix if needed
     function get_base_name --argument file
         set original_file (basename "$file")
         set original_base (string replace -r '\.(m4a|wav)$' '' "$original_file")
@@ -61,7 +64,7 @@ begin
         echo "$base_name"
     end
 
-    # Rename the audio file if its name does not start with a date
+    # Function to rename the audio file if necessary
     function rename_if_needed --argument audio_file
         set original_file (basename "$audio_file")
         if not string match -q -r '^[0-9]{4}-[0-9]{2}-[0-9]{2}' "$original_file"
@@ -69,7 +72,7 @@ begin
             set extension (string match -r -- '\.[^.]+$' "$original_file")
             set new_file "$audio_dir/$base_name$extension"
             if test -f "$new_file"
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error: target file $new_file already exists. Renaming canceled." >&2
+                echo (date "+%Y-%m-%d %H:%M:%S") "Error: target file $new_file already exists." >&2
             else
                 mv "$audio_file" "$new_file"
                 echo (date "+%Y-%m-%d %H:%M:%S") "Renamed $audio_file to $new_file" >&2
@@ -79,10 +82,11 @@ begin
         printf "%s" "$audio_file"
     end
 
-    # Function to transcribe an audio file
+    # Function for transcription and diarization using WhisperX
     function transcribe_file --argument audio_file
         set base_name (get_base_name "$audio_file")
-        set transcription_file "$audio_dir/$base_name.lrc"
+        set transcription_file "$audio_dir/$base_name.txt"
+        set diarization_file "$audio_dir/$base_name.diarization.json"
         set lock_file "$audio_dir/$base_name.lock"
 
         if test -f "$transcription_file"
@@ -96,14 +100,14 @@ begin
         end
 
         touch "$lock_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Transcribing $audio_file..."
+        echo (date "+%Y-%m-%d %H:%M:%S") "Transcribing $audio_file with WhisperX..."
 
-        # Convert to WAV if necessary
+        # Converting to WAV if needed
         if not string match -q -r '\.wav$' "$audio_file"
             set wav_file "$audio_dir/$base_name.wav"
             ffmpeg -y -i "$audio_file" -ar 16000 "$wav_file"
             if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error converting $audio_file to WAV. Please check file integrity and ffmpeg installation." >&2
+                echo (date "+%Y-%m-%d %H:%M:%S") "Error converting $audio_file to WAV." >&2
                 rm -f "$lock_file"
                 return 1
             end
@@ -114,46 +118,24 @@ begin
             set converted 0
         end
 
-        # Use a configurable variable for the model path
-        if not set -q MODEL_PATH
-            set -x MODEL_PATH "$HOME/Git/auto_transcript/models/ggml-large-v3-turbo.bin"
+        # Add a check for the whisperx command before using it
+        if not type -q whisperx
+            echo "Error: whisperx command not found. Please install whisperx."
+            rm -f "$lock_file"
+            return 1
         end
 
-        if not test -f "$MODEL_PATH"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Model file not found. Downloading using download-ggml-model.sh..."
-            mkdir -p (dirname "$MODEL_PATH")
-            set temp_script /tmp/download-ggml-model.sh
-            curl -L -o "$temp_script" "https://raw.githubusercontent.com/ggerganov/whisper.cpp/refs/heads/master/models/download-ggml-model.sh"
-            if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error downloading the model download script. Please check your network connection." >&2
-                rm -f "$lock_file"
-                return 1
-            end
-            chmod +x "$temp_script"
-            bash "$temp_script" large-v3-turbo
-            if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error executing the model download script. Please verify the script's permissions and integrity." >&2
-                rm -f "$lock_file"
-                return 1
-            end
-            if test -f /tmp/ggml-large-v3-turbo.bin
-                mv /tmp/ggml-large-v3-turbo.bin "$MODEL_PATH"
-            else
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error: ggml-large-v3-turbo.bin not found after download. Aborting transcription." >&2
-                rm -f "$lock_file"
-                return 1
-            end
-        end
-
-        # Launch transcription with whisper-cli
-        whisper-cli -olrc -m "$MODEL_PATH" -l fr --threads 8 "$audio_source"
+        # Call WhisperX for transcription and diarization
+        whisperx "$audio_source" --model large-v3-turbo --language fr --diarize --threads 8 --output_dir "$audio_dir"
         if test $status -ne 0
-            echo (date "+%Y-%m-%d %H:%M:%S") "Error transcribing $audio_source. Please check whisper-cli logs." >&2
+            echo (date "+%Y-%m-%d %H:%M:%S") "Error transcribing $audio_source with WhisperX." >&2
         end
 
-        # Optionally rename the transcription file
-        if test -f "$audio_dir/$base_name.wav.lrc"
-            mv "$audio_dir/$base_name.wav.lrc" "$transcription_file"
+        # Check for the creation of the transcription file
+        if test -f "$audio_dir/$base_name.txt"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Transcription saved to $audio_dir/$base_name.txt"
+        else
+            echo (date "+%Y-%m-%d %H:%M:%S") "Error: transcript file not found." >&2
         end
 
         if test $converted -eq 1
@@ -162,7 +144,7 @@ begin
         rm -f "$lock_file"
     end
 
-    # Loop through all .m4a files in the directory
+    # Loop through all .m4a files in the folder
     for audio_file in "$audio_dir"/*.m4a
         if test -f "$audio_file"
             set audio_file (rename_if_needed "$audio_file")

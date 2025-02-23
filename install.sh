@@ -3,7 +3,7 @@ set -e
 
 echo "Installing dependencies..."
 
-# Installer fish si nécessaire
+# Check and install Fish if necessary
 if ! command -v fish >/dev/null 2>&1; then
     echo "Fish shell not found. Installing fish..."
     if command -v brew >/dev/null 2>&1; then
@@ -14,7 +14,7 @@ if ! command -v fish >/dev/null 2>&1; then
     fi
 fi
 
-# Installer ffmpeg si nécessaire
+# Check and install FFmpeg if necessary
 if ! command -v ffmpeg >/dev/null 2>&1; then
     echo "FFmpeg not found. Installing ffmpeg..."
     if command -v brew >/dev/null 2>&1; then
@@ -25,36 +25,51 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
     fi
 fi
 
-# Installer python3 si nécessaire
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "Python3 not found. Installing python3..."
+# Check and install Python 3.12 if necessary
+if ! command -v python3.12 >/dev/null 2>&1; then
+    echo "Python 3.12 not found. Installing python3.12..."
     if command -v brew >/dev/null 2>&1; then
-        brew install python
+        brew install python@3.12
     else
-        echo "Homebrew is not installed. Please install python3 manually."
+        echo "Homebrew is not installed. Please install Python 3.12 manually."
         exit 1
     fi
 fi
 
-# Add installation for whisper-cli
-if ! command -v whisper-cli >/dev/null 2>&1; then
-    echo "whisper-cli not found. Installing whisper-cli..."
-    if command -v brew >/dev/null 2>&1; then
-        brew install whisper-cpp
-    else
-        echo "Homebrew is not installed. Please install whisper-cpp manually."
-        exit 1
-    fi
+# Create virtual environment if it doesn't already exist using Python 3.12
+if [ ! -d "venv" ]; then
+    echo "Creating virtual environment with Python 3.12..."
+    python3.12 -m venv venv
 fi
 
-echo "Dependencies installed."
+echo "Activating virtual environment..."
+# Activate the virtual environment
+source venv/bin/activate
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install WhisperX in the virtual environment
+if ! command -v whisperx >/dev/null 2>&1; then
+    echo "whisperx not found in the virtual environment. Installing whisperx..."
+    pip install whisperx
+fi
+
+# Verify whisperx installation
+if ! command -v whisperx >/dev/null 2>&1; then
+    echo "Error: whisperx was not installed correctly."
+    exit 1
+fi
+
+echo "Dependencies installed and WhisperX configured in the virtual environment."
 
 echo "Configuring cron job..."
 
 # Dynamically resolve the full path to fish
 fish_path=$(command -v fish)
 
-CRON_CMD="* * * * * $fish_path /Users/seb/Git/auto_transcript/auto_transcribe.fish >> /Users/seb/Git/auto_transcript/cron.log 2>&1"
+# Modify the cron command to activate the virtual environment before executing the fish script
+CRON_CMD="* * * * * cd /Users/seb/Git/auto_transcript && . ./venv/bin/activate && $fish_path auto_transcribe.fish >> /Users/seb/Git/auto_transcript/cron.log 2>&1"
 ( crontab -l 2>/dev/null | grep -F "$CRON_CMD" ) || ( ( crontab -l 2>/dev/null; echo "$CRON_CMD" ) | crontab - )
 
-echo "Installation completed."
+echo "Installation complete."
