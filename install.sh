@@ -9,7 +9,7 @@ if ! command -v fish >/dev/null 2>&1; then
     if command -v brew >/dev/null 2>&1; then
         brew install fish
     else
-        echo "Homebrew is not installed. Please install fish manually."
+        echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install fish manually." >> "$audio_dir/auto_transcribe_errors.log"
         exit 1
     fi
 fi
@@ -20,7 +20,7 @@ if ! command -v ffmpeg >/dev/null 2>&1; then
     if command -v brew >/dev/null 2>&1; then
         brew install ffmpeg
     else
-        echo "Homebrew is not installed. Please install ffmpeg manually."
+        echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install ffmpeg manually." >> "$audio_dir/auto_transcribe_errors.log"
         exit 1
     fi
 fi
@@ -31,10 +31,22 @@ if ! command -v python3 >/dev/null 2>&1; then
     if command -v brew >/dev/null 2>&1; then
         brew install python
     else
-        echo "Homebrew is not installed. Please install python3 manually."
+        echo "$(date "+%Y-%m-%d %H:%M:%S")" "Error: Homebrew is not installed. Please install python3 manually." >> "$audio_dir/auto_transcribe_errors.log"
         exit 1
     fi
 fi
+
+# Installer la dépendance Python pour ai-summarize (openai)
+echo "Installing Python dependencies for ai-summarize..."
+if command -v pip3 >/dev/null 2>&1; then
+    pip3 install --upgrade openai
+else
+    echo "$(date "+%Y-%m-%d %H:%M:%S")" "Error: pip3 not found. Please install pip3." >> "$audio_dir/auto_transcribe_errors.log"
+    exit 1
+fi
+
+# Ajouter l'exécution pour le script ai-summarize (facultatif : définir les permissions)
+chmod +x /Users/seb/Git/auto_transcript/ai-summarize.py
 
 # Add installation for whisper-cli
 if ! command -v whisper-cli >/dev/null 2>&1; then
@@ -42,7 +54,7 @@ if ! command -v whisper-cli >/dev/null 2>&1; then
     if command -v brew >/dev/null 2>&1; then
         brew install whisper-cpp
     else
-        echo "Homebrew is not installed. Please install whisper-cpp manually."
+        echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install whisper-cpp manually." >> "$audio_dir/auto_transcribe_errors.log"
         exit 1
     fi
 fi
