@@ -73,7 +73,7 @@ end
 
 # Fonction pour créer le résumé en appelant ai-summarize.py avec l'interpréteur du venv et en enregistrant le résultat dans un fichier
 function summarize_transcription --argument transcription_file
-    set summary_file (string replace -r '\.lrc$' '.summary.txt' "$transcription_file")
+    set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
     /Users/seb/Git/auto_transcript/venv/bin/python3 "$script_dir/ai-summarize.py" "$transcription_file" > "$summary_file"
 end
 
@@ -173,7 +173,7 @@ function transcribe_file --argument audio_file
     # ---------------------------------------------
     # Étape 3 : Création du résumé
     # ---------------------------------------------
-    set summary_file (string replace -r '\.lrc$' '.summary.txt' "$transcription_file")
+    set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
     if test -f "$summary_file"
         echo (date "+%Y-%m-%d %H:%M:%S") "Résumé déjà créé pour $audio_file ($summary_file existe)."
     else if test -f "$transcription_file"
