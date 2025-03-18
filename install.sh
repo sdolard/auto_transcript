@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
 set -e
 
 echo "Installing dependencies..."
@@ -46,7 +47,7 @@ else
 fi
 
 # Création et configuration de l'environnement virtuel pour ai-summarize
-VENV_DIR="/Users/seb/Git/auto_transcript/venv"
+VENV_DIR="$ROOT_DIR/venv"
 if [ ! -d "$VENV_DIR" ]; then
     echo "Creating virtual environment in $VENV_DIR..."
     python3 -m venv "$VENV_DIR"
@@ -58,7 +59,7 @@ pip install --upgrade openai
 deactivate
 
 # Ajouter l'exécution pour le script ai-summarize (facultatif : définir les permissions)
-chmod +x /Users/seb/Git/auto_transcript/ai-summarize.py
+chmod +x "$ROOT_DIR/ai-summarize.py"
 
 # Add installation for whisper-cli
 if ! command -v whisper-cli >/dev/null 2>&1; then
@@ -78,7 +79,7 @@ echo "Configuring cron job..."
 # Dynamically resolve the full path to fish
 fish_path=$(command -v fish)
 
-CRON_CMD="* * * * * export PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin && source /Users/seb/Git/auto_transcript/venv/bin/activate && $fish_path /Users/seb/Git/auto_transcript/auto_transcribe.fish >> /Users/seb/Git/auto_transcript/cron.log 2>&1"
+CRON_CMD="* * * * * export PATH=/usr/local/bin:/usr/bin:/bin:/opt/homebrew/bin && source \"$ROOT_DIR/venv/bin/activate\" && $fish_path \"$ROOT_DIR/auto_transcribe.fish\" >> \"$ROOT_DIR/cron.log\" 2>&1"
 ( crontab -l 2>/dev/null | grep -F "$CRON_CMD" ) || ( ( crontab -l 2>/dev/null; echo "$CRON_CMD" ) | crontab - )
 
 echo "Installation completed."

@@ -21,7 +21,7 @@ The script is set up as a cron job via the install script, ensuring periodic exe
 
 ## Additional Information
 
-- The repository automatically downloads the model if not present and moves it to `/Users/seb/Git/auto_transcript/models`.
+- The repository automatically downloads the model if not present and moves it to ./models.
 - Optional diarization support is available (currently commented out in the script); modify the script to enable it if required.
 - For troubleshooting, review the log file and ensure that the install script ran successfully.
 

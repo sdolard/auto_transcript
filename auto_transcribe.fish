@@ -74,7 +74,7 @@ end
 # Fonction pour créer le résumé en appelant ai-summarize.py avec l'interpréteur du venv et en enregistrant le résultat dans un fichier
 function summarize_transcription --argument transcription_file
     set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
-    /Users/seb/Git/auto_transcript/venv/bin/python3 "$script_dir/ai-summarize.py" "$transcription_file" > "$summary_file"
+    "$script_dir/venv/bin/python3" "$script_dir/ai-summarize.py" "$transcription_file" > "$summary_file"
 end
 
 # Transcrire un fichier audio
@@ -124,7 +124,7 @@ function transcribe_file --argument audio_file
         echo (date "+%Y-%m-%d %H:%M:%S") "Transcription de $audio_source..."
         # Vérifier et configurer le chemin du modèle
         if not set -q MODEL_PATH
-            set -x MODEL_PATH "$HOME/Git/auto_transcript/models/ggml-large-v3-turbo.bin"
+            set -x MODEL_PATH "$script_dir/models/ggml-large-v3-turbo.bin"
         end
         if not test -f "$MODEL_PATH"
             echo (date "+%Y-%m-%d %H:%M:%S") "Fichier modèle introuvable. Téléchargement en cours..." >> "$audio_dir/auto_transcribe_errors.log"
