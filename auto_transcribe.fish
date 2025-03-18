@@ -216,7 +216,7 @@ begin
     if test -f "$global_lock"
         set old_pid (cat "$global_lock")
         # Validation que le contenu est un PID valide
-        if test -n "$old_pid" -a (string match -q '[0-9]+' $old_pid)
+        if test -n "$old_pid" && string match -q '[0-9]+' $old_pid
             if ps -p $old_pid > /dev/null
                 echo (date "+%Y-%m-%d %H:%M:%S") "An instance is already running (PID $old_pid). Exiting."
                 exit 0
