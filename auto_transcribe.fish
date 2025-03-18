@@ -223,9 +223,8 @@ begin
     # --- Gestion du verrou global pour empêcher les exécutions concurrentes ---
     set global_lock /tmp/auto_transcribe.lock
     if test -f "$global_lock"
-        set old_pid (cat "$global_lock")
-        # Validation que le contenu est un PID valide
-        if test -n "$old_pid" && string match -q '[0-9]+' $old_pid
+        set old_pid (cat "$global_lock" | string trim)
+        if test -n "$old_pid"
             if ps -p $old_pid > /dev/null
                 echo (date "+%Y-%m-%d %H:%M:%S") "An instance is already running (PID $old_pid). Exiting."
                 exit 0
@@ -233,7 +232,6 @@ begin
                 rm -f "$global_lock"
             end
         else
-            # Si le contenu du fichier n'est pas valide, supprimer le verrou
             rm -f "$global_lock"
         end
     end
@@ -241,8 +239,11 @@ begin
     # Sauvegarder le PID actuel dans le fichier de verrou
     echo $fish_pid > "$global_lock"
 
-    # Supprimer le verrou et terminer le groupe de processus à la sortie
-    trap 'kill -TERM -$fish_pid; rm -f "$global_lock"' EXIT
+    # Log la création du verrou global
+    echo (date "+%Y-%m-%d %H:%M:%S") "Création du verrou global ($global_lock) avec PID $fish_pid" >> "$log_file"
+
+    # Définir un trap pour loguer et supprimer le verrou à la sortie
+    trap 'echo (date "+%Y-%m-%d %H:%M:%S") "Suppression du verrou global ($global_lock)" >> "$log_file"; rm -f "$global_lock"' EXIT
 
     # Traiter tous les fichiers .m4a dans le répertoire
     for audio_file in "$audio_dir"/*.m4a
