@@ -102,7 +102,7 @@ function transcribe_file --argument audio_file
             set audio_source "$wav_file"
         else
             echo (date "+%Y-%m-%d %H:%M:%S") "Conversion de $audio_file en format WAV..."
-            ffmpeg -y -i "$audio_file" -ar 16000 "$wav_file"
+            ffmpeg -y -i "$audio_file" -af "afftdn, highpass=f=80, lowpass=f=8000, dynaudnorm, acompressor=threshold=-20dB:ratio=3:attack=200:release=1000" -ar 16000 "$wav_file"
             if test $status -ne 0
                 echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la conversion de $audio_file en WAV." >> "$audio_dir/auto_transcribe_errors.log"
                 rm -f "$lock_file"
@@ -137,7 +137,7 @@ function transcribe_file --argument audio_file
                 return 1
             end
             chmod +x "$temp_script"
-            bash "$temp_script" large-v3-turbo
+            bash "$temp_script" large-v3
             if test $status -ne 0
                 echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de l'exécution du script de téléchargement du modèle." >> "$audio_dir/auto_transcribe_errors.log"
                 rm -f "$lock_file"
@@ -153,7 +153,16 @@ function transcribe_file --argument audio_file
         end
 
         # Lancer la transcription avec whisper-cli
-        whisper-cli -olrc -m "$MODEL_PATH" -l fr --threads 8 "$audio_source"
+        whisper-cli -olrc \
+          -m "$MODEL_PATH" \
+          -l auto \
+          --threads 8 \
+          --entropy-thold 1.5 \
+          --temperature 0.0 \
+          --no-fallback \
+          --suppress-nst \
+          --flash-attn \
+          -f "$audio_source"
         if test $status -ne 0
             echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la transcription de $audio_source." >> "$audio_dir/auto_transcribe_errors.log"
             rm -f "$lock_file"
