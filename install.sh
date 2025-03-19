@@ -1,41 +1,28 @@
 #!/usr/bin/env bash
 ROOT_DIR="$(cd "$(dirname "$0")" && pwd)"
-set -e
+set -euo pipefail
+LOG_FILE="$ROOT_DIR/auto_transcribe_errors.log"
+
+check_and_install() {
+    local cmd="$1"
+    local brew_pkg="$2"
+    if ! command -v "$cmd" >/dev/null 2>&1; then
+        echo "$cmd not found. Installing $brew_pkg..."
+        if command -v brew >/dev/null 2>&1; then
+            brew install "$brew_pkg"
+        else
+            echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install $brew_pkg manually." >> "$LOG_FILE"
+            exit 1
+        fi
+    fi
+}
 
 echo "Installing dependencies..."
 
-# Installer fish si nécessaire
-if ! command -v fish >/dev/null 2>&1; then
-    echo "Fish shell not found. Installing fish..."
-    if command -v brew >/dev/null 2>&1; then
-        brew install fish
-    else
-        echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install fish manually." >> "$audio_dir/auto_transcribe_errors.log"
-        exit 1
-    fi
-fi
-
-# Installer ffmpeg si nécessaire
-if ! command -v ffmpeg >/dev/null 2>&1; then
-    echo "FFmpeg not found. Installing ffmpeg..."
-    if command -v brew >/dev/null 2>&1; then
-        brew install ffmpeg
-    else
-        echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install ffmpeg manually." >> "$audio_dir/auto_transcribe_errors.log"
-        exit 1
-    fi
-fi
-
-# Installer python3 si nécessaire
-if ! command -v python3 >/dev/null 2>&1; then
-    echo "Python3 not found. Installing python3..."
-    if command -v brew >/dev/null 2>&1; then
-        brew install python
-    else
-        echo "$(date "+%Y-%m-%d %H:%M:%S")" "Error: Homebrew is not installed. Please install python3 manually." >> "$audio_dir/auto_transcribe_errors.log"
-        exit 1
-    fi
-fi
+check_and_install fish fish
+check_and_install ffmpeg ffmpeg
+check_and_install python3 python
+check_and_install whisper-cli whisper-cpp
 
 # Création et configuration de l'environnement virtuel pour ai-summarize
 VENV_DIR="$ROOT_DIR/venv"
@@ -52,17 +39,6 @@ deactivate
 
 # Ajouter l'exécution pour le script ai-summarize (facultatif : définir les permissions)
 chmod +x "$ROOT_DIR/ai-summarize.py"
-
-# Add installation for whisper-cli
-if ! command -v whisper-cli >/dev/null 2>&1; then
-    echo "whisper-cli not found. Installing whisper-cli..."
-    if command -v brew >/dev/null 2>&1; then
-        brew install whisper-cpp
-    else
-        echo "$(date "+%Y-%m-%d %H:%M:%S") Error: Homebrew is not installed. Please install whisper-cpp manually." >> "$audio_dir/auto_transcribe_errors.log"
-        exit 1
-    fi
-fi
 
 echo "Dependencies installed."
 
