@@ -37,15 +37,6 @@ if ! command -v python3 >/dev/null 2>&1; then
     fi
 fi
 
-# Installer la dépendance Python pour ai-summarize (openai)
-echo "Installing Python dependencies for ai-summarize..."
-if command -v pip3 >/dev/null 2>&1; then
-    pip3 install --upgrade openai
-else
-    echo "$(date "+%Y-%m-%d %H:%M:%S")" "Error: pip3 not found. Please install pip3." >> "$audio_dir/auto_transcribe_errors.log"
-    exit 1
-fi
-
 # Création et configuration de l'environnement virtuel pour ai-summarize
 VENV_DIR="$ROOT_DIR/venv"
 if [ ! -d "$VENV_DIR" ]; then
@@ -54,6 +45,7 @@ if [ ! -d "$VENV_DIR" ]; then
 fi
 
 echo "Installing Python dependencies in the virtual environment..."
+# shellcheck source=/dev/null
 source "$VENV_DIR/bin/activate"
 pip install --upgrade openai
 deactivate
