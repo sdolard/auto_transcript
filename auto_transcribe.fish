@@ -95,24 +95,29 @@ function transcribe_file --argument audio_file
     # ---------------------------------------------
     set converted 0
     set audio_source ""
-    if not string match -q -r '\.wav$' (string lower "$audio_file")
-        set wav_file "$audio_dir/$base_name.wav"
-        if test -f "$wav_file"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Conversion déjà effectuée pour $audio_file (fichier WAV existant: $wav_file)."
-            set audio_source "$wav_file"
-        else
-            echo (date "+%Y-%m-%d %H:%M:%S") "Conversion de $audio_file en format WAV..."
-            ffmpeg -y -i "$audio_file" -af "afftdn, highpass=f=80, lowpass=f=8000, dynaudnorm, acompressor=threshold=-20dB:ratio=3:attack=200:release=1000" -ar 16000 "$wav_file"
-            if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la conversion de $audio_file en WAV." >> "$audio_dir/auto_transcribe_errors.log"
-                rm -f "$lock_file"
-                return 1
-            end
-            set audio_source "$wav_file"
-            set converted 1
-        end
-    else
+    if test -f "$transcription_file"
+        # Transcription déjà existante : pas de conversion
         set audio_source "$audio_file"
+    else
+        if not string match -q -r '\.wav$' (string lower "$audio_file")
+            set wav_file "$audio_dir/$base_name.wav"
+            if test -f "$wav_file"
+                echo (date "+%Y-%m-%d %H:%M:%S") "Conversion déjà effectuée pour $audio_file (fichier WAV existant: $wav_file)."
+                set audio_source "$wav_file"
+            else
+                echo (date "+%Y-%m-%d %H:%M:%S") "Conversion de $audio_file en format WAV..."
+                ffmpeg -y -i "$audio_file" -af "afftdn, highpass=f=80, lowpass=f=8000, dynaudnorm, acompressor=threshold=-20dB:ratio=3:attack=200:release=1000" -ar 16000 "$wav_file"
+                if test $status -ne 0
+                    echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la conversion de $audio_file en WAV." >> "$audio_dir/auto_transcribe_errors.log"
+                    rm -f "$lock_file"
+                    return 1
+                end
+                set audio_source "$wav_file"
+                set converted 1
+            end
+        else
+            set audio_source "$audio_file"
+        end
     end
 
     # ---------------------------------------------
