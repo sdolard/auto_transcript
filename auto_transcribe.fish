@@ -96,7 +96,12 @@ function transcribe_file --argument audio_file
     set converted 0
     set audio_source ""
     if test -f "$transcription_file"
-        # Transcription déjà existante : pas de conversion
+        # Transcription déjà existante : supprimer le fichier WAV s'il existe
+        set wav_file "$audio_dir/$base_name.wav"
+        if test -f "$wav_file"
+            rm -f "$wav_file"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Suppression du fichier WAV existant: $wav_file (transcription existante)." >> "$audio_dir/auto_transcribe_errors.log"
+        end
         set audio_source "$audio_file"
     else
         if not string match -q -r '\.wav$' (string lower "$audio_file")
