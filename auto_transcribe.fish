@@ -4,19 +4,19 @@
 # Configuration
 # =============================================================================
 
-# Définir le nombre de threads pour certaines opérations
+# Set the number of threads for certain operations
 set -x OMP_NUM_THREADS 8
 
-# Répertoire contenant les fichiers audio et leurs transcriptions
+# Directory containing the audio files and their transcriptions
 set audio_dir ~/Transcriptions
 set log_file "$audio_dir/auto_transcribe.log"
 set script_dir (dirname (status -f))
 
 # =============================================================================
-# Fonctions Utilitaires
+# Utility Functions
 # =============================================================================
 
-# Rotation du log avec détection du système d'exploitation
+# Rotate the log file with OS detection
 function rotate_log
     if test -f "$log_file"
         set uname (uname)
@@ -36,10 +36,10 @@ function rotate_log
     end
 end
 
-# Obtenir le nom de base sans extension et préfixer avec la date si nécessaire
+# Get the base name without extension and prefix with the date if needed
 function get_base_name --argument file
     set original_file (basename "$file")
-    # Suppression insensible à la casse des extensions .m4a ou .wav
+    # Remove case-insensitive extensions .m4a or .wav
     set original_base (string replace -r '(?i)\.(m4a|wav)$' '' "$original_file")
     if not string match -q -r '^[0-9]{4}-[0-9]{2}-[0-9]{2}' "$original_base"
         set base_name (date "+%Y-%m-%d")-"$original_base"
@@ -49,7 +49,7 @@ function get_base_name --argument file
     echo "$base_name"
 end
 
-# Renommer le fichier audio si son nom ne commence pas par une date
+# Rename the audio file if its name does not start with a date
 function rename_if_needed --argument audio_file
     set original_file (basename "$audio_file")
     if not string match -q -r '^[0-9]{4}-[0-9]{2}-[0-9]{2}' "$original_file"
@@ -68,52 +68,52 @@ function rename_if_needed --argument audio_file
 end
 
 # =============================================================================
-# Fonctions de Transcription
+# Transcription Functions
 # =============================================================================
 
-# Fonction pour créer le résumé en appelant ai-summarize.py avec l'interpréteur du venv et en enregistrant le résultat dans un fichier
+# Function to create the summary by calling ai-summarize.py with the venv python interpreter and saving the result to a file
 function summarize_transcription --argument transcription_file
     set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
     "$script_dir/venv/bin/python3" "$script_dir/ai-summarize.py" "$transcription_file" > "$summary_file"
 end
 
-# Transcrire un fichier audio
+# Transcribe an audio file
 function transcribe_file --argument audio_file
     set base_name (get_base_name "$audio_file")
     set transcription_file "$audio_dir/$base_name.lrc"
     set lock_file "$audio_dir/$base_name.lock"
 
     if test -f "$lock_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Une transcription est déjà en cours pour $audio_file. Passage à l'étape suivante."
+        echo (date "+%Y-%m-%d %H:%M:%S") "A transcription is already in progress for $audio_file. Skipping."
         return 0
     end
 
     touch "$lock_file"
 
     # ---------------------------------------------
-    # Étape 1 : Conversion au format WAV si nécessaire
+    # Step 1: Convert to WAV format if needed
     # ---------------------------------------------
     set converted 0
     set audio_source ""
     if test -f "$transcription_file"
-        # Transcription déjà existante : supprimer le fichier WAV s'il existe
+        # Existing transcription: delete the WAV file if it exists
         set wav_file "$audio_dir/$base_name.wav"
         if test -f "$wav_file"
             rm -f "$wav_file"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Suppression du fichier WAV existant: $wav_file (transcription existante)." >> "$audio_dir/auto_transcribe_errors.log"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Removed existing WAV file: $wav_file (transcription already exists)." >> "$audio_dir/auto_transcribe_errors.log"
         end
         set audio_source "$audio_file"
     else
         if not string match -q -r '\.wav$' (string lower "$audio_file")
             set wav_file "$audio_dir/$base_name.wav"
             if test -f "$wav_file"
-                echo (date "+%Y-%m-%d %H:%M:%S") "Conversion déjà effectuée pour $audio_file (fichier WAV existant: $wav_file)."
+                echo (date "+%Y-%m-%d %H:%M:%S") "Conversion already performed for $audio_file (existing WAV file: $wav_file)."
                 set audio_source "$wav_file"
             else
-                echo (date "+%Y-%m-%d %H:%M:%S") "Conversion de $audio_file en format WAV..."
+                echo (date "+%Y-%m-%d %H:%M:%S") "Converting $audio_file to WAV format..."
                 ffmpeg -y -i "$audio_file" -af "afftdn, highpass=f=80, lowpass=f=8000, dynaudnorm, acompressor=threshold=-20dB:ratio=3:attack=200:release=1000" -ar 16000 "$wav_file"
                 if test $status -ne 0
-                    echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la conversion de $audio_file en WAV." >> "$audio_dir/auto_transcribe_errors.log"
+                    echo (date "+%Y-%m-%d %H:%M:%S") "Error converting $audio_file to WAV." >> "$audio_dir/auto_transcribe_errors.log"
                     rm -f "$lock_file"
                     return 1
                 end
@@ -126,50 +126,48 @@ function transcribe_file --argument audio_file
     end
 
     # ---------------------------------------------
-    # Étape 2 : Transcription
+    # Step 2: Transcription
     # ---------------------------------------------
     if test -f "$transcription_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Transcription déjà réalisée pour $audio_file ($transcription_file existe)."
+        echo (date "+%Y-%m-%d %H:%M:%S") "Transcription already exists for $audio_file ($transcription_file exists)."
     else
-        echo (date "+%Y-%m-%d %H:%M:%S") "Transcription de $audio_source..."
-        # Vérifier et configurer le chemin du modèle
+        echo (date "+%Y-%m-%d %H:%M:%S") "Transcribing $audio_source..."
+        # Verify and set the model path if not defined
         if not set -q MODEL_PATH
             set -x MODEL_PATH "$script_dir/models/ggml-large-v3-turbo.bin"
         end
         if not test -f "$MODEL_PATH"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Fichier modèle introuvable. Téléchargement en cours..." >> "$audio_dir/auto_transcribe_errors.log"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Model file not found. Downloading..." >> "$audio_dir/auto_transcribe_errors.log"
             mkdir -p (dirname "$MODEL_PATH")
             set temp_script /tmp/download-ggml-model.sh
             curl -L -o "$temp_script" "https://raw.githubusercontent.com/ggerganov/whisper.cpp/refs/heads/master/models/download-ggml-model.sh"
             if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors du téléchargement du script du modèle." >> "$audio_dir/auto_transcribe_errors.log"
+                echo (date "+%Y-%m-%d %H:%M:%S") "Error downloading the model script." >> "$audio_dir/auto_transcribe_errors.log"
                 rm -f "$lock_file"
                 return 1
             end
             chmod +x "$temp_script"
             bash "$temp_script" large-v3
             if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de l'exécution du script de téléchargement du modèle." >> "$audio_dir/auto_transcribe_errors.log"
+                echo (date "+%Y-%m-%d %H:%M:%S") "Error executing the model download script." >> "$audio_dir/auto_transcribe_errors.log"
                 rm -f "$lock_file"
                 return 1
             end
             if test -f /tmp/ggml-large-v3-turbo.bin
                 mv /tmp/ggml-large-v3-turbo.bin "$MODEL_PATH"
             else
-                echo (date "+%Y-%m-%d %H:%M:%S") "Erreur : ggml-large-v3-turbo.bin introuvable après téléchargement." >> "$audio_dir/auto_transcribe_errors.log"
+                echo (date "+%Y-%m-%d %H:%M:%S") "Error: ggml-large-v3-turbo.bin not found after download." >> "$audio_dir/auto_transcribe_errors.log"
                 rm -f "$lock_file"
                 return 1
             end
         end
 
-        # Vérification de la charge système avant la transcription
+        # Check system load before transcription
         set os (uname)
         if test "$os" = "Linux"
             set load_avg (cat /proc/loadavg | cut -d' ' -f1)
         else if test "$os" = "Darwin"
-            # Sur macOS, utiliser uptime et extraire la valeur load average plus précisément
             set load_avg (uptime | grep -o "load averages: [0-9.]*" | awk '{print $3}')
-            # Si la commande précédente échoue, essayer une alternative
             if test -z "$load_avg"
                 set load_avg (uptime | awk -F'[, ]' '{for (i=1; i<=NF; i++) if (index($i, ".") > 0) {print $i; exit}}')
             end
@@ -178,62 +176,61 @@ function transcribe_file --argument audio_file
         end
         
         if test (echo "$load_avg" | awk '{if ($1 > 5.0) print 1; else print 0}') -eq 1
-            echo (date "+%Y-%m-%d %H:%M:%S") "Load average is high ($load_avg). Transcription deferred for $audio_source." >> "$audio_dir/auto_transcribe.log"
+            echo (date "+%Y-%m-%d %H:%M:%S") "High system load ($load_avg). Transcription deferred for $audio_source." >> "$audio_dir/auto_transcribe.log"
             rm -f "$lock_file"
             return 0
         end
 
-        # Lancer la transcription avec whisper-cli
+        # Run transcription with whisper-cli
         whisper-cli -olrc \
           -m "$MODEL_PATH" \
-          -l fr \
+          -l en \
           --threads 8 \
           --entropy-thold 2.0 \
           --temperature 0.2 \
           --best-of 5 \
           --suppress-nst \
-          --max-context 0 \ # Still a doubt on this option.
+          --max-context 0 \ # Option left as is.
           -f "$audio_source"
         if test $status -ne 0
-            echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la transcription de $audio_source." >> "$audio_dir/auto_transcribe_errors.log"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Error during transcription of $audio_source." >> "$audio_dir/auto_transcribe_errors.log"
             rm -f "$lock_file"
             return 1
         end
 
-        # Renommer le fichier de transcription généré
+        # Rename the generated transcription file
         if test -f "$audio_dir/$base_name.wav.lrc"
             mv "$audio_dir/$base_name.wav.lrc" "$transcription_file"
         else
-            echo (date "+%Y-%m-%d %H:%M:%S") "Erreur : fichier de transcription non généré pour $audio_source." >> "$audio_dir/auto_transcribe_errors.log"
+            echo (date "+%Y-%m-%d %H:%M:%S") "Error: transcription file not generated for $audio_source." >> "$audio_dir/auto_transcribe_errors.log"
             rm -f "$lock_file"
             return 1
         end
     end
 
     # ---------------------------------------------
-    # Étape 3 : Création du résumé
+    # Step 3: Create Summary
     # ---------------------------------------------
     set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
     if test -f "$summary_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Résumé déjà créé pour $audio_file ($summary_file existe)."
+        echo (date "+%Y-%m-%d %H:%M:%S") "Summary already exists for $audio_file ($summary_file exists)."
     else if test -f "$transcription_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Création du résumé pour $transcription_file..."
+        echo (date "+%Y-%m-%d %H:%M:%S") "Creating summary for $transcription_file..."
         summarize_transcription "$transcription_file"
     end
-
 
     rm -f "$lock_file"
 end
 
 # =============================================================================
-# Exécution Principale
+# Main Execution
 # =============================================================================
 
-# Rotation du log
+# Rotate log file
 rotate_log
 
 begin
-    # --- Vérification des commandes externes requises ---
+    # --- Verify required external commands ---
     if not type -q whisper-cli
         echo (date "+%Y-%m-%d %H:%M:%S") "Error: command whisper-cli not found in PATH." >> "$audio_dir/auto_transcribe_errors.log"
         exit 1
@@ -251,7 +248,7 @@ begin
         exit 1
     end
 
-    # --- Gestion du verrou global pour empêcher les exécutions concurrentes ---
+    # --- Global lock to prevent concurrent executions ---
     set global_lock /tmp/auto_transcribe.lock
     if test -f "$global_lock"
         set old_pid (cat "$global_lock" | string trim)
@@ -267,16 +264,16 @@ begin
         end
     end
 
-    # Sauvegarder le PID actuel dans le fichier de verrou
+    # Save the current PID into the lock file
     echo $fish_pid > "$global_lock"
 
-    # Log la création du verrou global
-    echo (date "+%Y-%m-%d %H:%M:%S") "Création du verrou global ($global_lock) avec PID $fish_pid" >> "$log_file"
+    # Log the creation of the global lock
+    echo (date "+%Y-%m-%d %H:%M:%S") "Global lock created ($global_lock) with PID $fish_pid" >> "$log_file"
 
-    # Définir un trap pour loguer et supprimer le verrou à la sortie
-    trap 'echo (date "+%Y-%m-%d %H:%M:%S") "Suppression du verrou global ($global_lock)" >> "$log_file"; rm -f "$global_lock"' EXIT
+    # Set a trap to log and remove the global lock upon exit
+    trap 'echo (date "+%Y-%m-%d %H:%M:%S") "Removing global lock ($global_lock)" >> "$log_file"; rm -f "$global_lock"' EXIT
 
-    # Traiter tous les fichiers .m4a dans le répertoire
+    # Process all .m4a files in the directory
     for audio_file in "$audio_dir"/*.m4a
         if test -f "$audio_file"
             set audio_file (rename_if_needed "$audio_file")
