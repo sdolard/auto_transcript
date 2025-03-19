@@ -165,7 +165,7 @@ function transcribe_file --argument audio_file
         # Lancer la transcription avec whisper-cli
         whisper-cli -olrc \
           -m "$MODEL_PATH" \
-          -l auto \
+          -l fr \
           --threads 8 \
           --entropy-thold 1.5 \
           --temperature 0.0 \
