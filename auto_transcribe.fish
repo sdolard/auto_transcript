@@ -4,13 +4,25 @@
 # Configuration
 # =============================================================================
 
-# Set the number of threads for certain operations
-set -x OMP_NUM_THREADS 8
+# Constants for configuration
+set THREADS 8
+set -x OMP_NUM_THREADS $THREADS
+set LOG_MAX_SIZE 5242880  # Log rotation threshold in bytes (5MB)
+set LOAD_THRESHOLD 5    # System load average threshold for deferring transcription
 
 # Directory containing the audio files and their transcriptions
 set audio_dir ~/Transcriptions
 set log_file "$audio_dir/auto_transcribe.log"
 set script_dir (dirname (status -f))
+
+# -----------------------------------------------------------------------------
+# Logging Function
+# -----------------------------------------------------------------------------
+function log_message
+    # Logs a message with a timestamp to the log file
+    set message $argv
+    echo (date "+%Y-%m-%d %H:%M:%S") $message >> "$log_file"
+end
 
 # =============================================================================
 # Utility Functions
@@ -28,10 +40,10 @@ function rotate_log
             set filesize (stat -f%z "$log_file")
         end
 
-        if test $filesize -gt 5242880
+        if test $filesize -gt $LOG_MAX_SIZE
             set timestamp (date "+%Y%m%d%H%M%S")
             mv "$log_file" "$audio_dir/auto_transcribe.log.$timestamp"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Log rotation: auto_transcribe.log renamed to auto_transcribe.log.$timestamp"
+            log_message "Log rotation: auto_transcribe.log renamed to auto_transcribe.log.$timestamp"
         end
     end
 end
@@ -57,19 +69,53 @@ function rename_if_needed --argument audio_file
         set extension (string match -r -- '\.[^.]+$' "$original_file")
         set new_file "$audio_dir/$base_name$extension"
         if test -f "$new_file"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Error: target file $new_file already exists. Renaming aborted." >> "$audio_dir/auto_transcribe.log"
+            log_message "Error: target file $new_file already exists. Renaming aborted."
         else
             mv "$audio_file" "$new_file"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Renamed $audio_file to $new_file" >> "$audio_dir/auto_transcribe.log"
+            log_message "Renamed $audio_file to $new_file"
             set audio_file "$new_file"
         end
     end
     printf "%s" "$audio_file"
 end
 
-# =============================================================================
-# Transcription Functions
-# =============================================================================
+# -----------------------------------------------------------------------------
+# Download Model Function
+# -----------------------------------------------------------------------------
+function download_model
+    # Downloads the model file if it does not exist and stores it in the models folder
+    log_message "Model file not found. Downloading..."
+    set model_dir "$script_dir/models"
+    mkdir -p "$model_dir"
+    set -x MODEL_PATH "$model_dir/ggml-large-v3-turbo.bin"
+    set temp_script /tmp/download-ggml-model.sh
+    curl -L -o "$temp_script" "https://raw.githubusercontent.com/ggerganov/whisper.cpp/refs/heads/master/models/download-ggml-model.sh"
+    if test $status -ne 0
+        log_message "Error downloading the model script."
+        return 1
+    end
+    chmod +x "$temp_script"
+    bash "$temp_script" large-v3-turbo "$model_dir"
+    if test $status -ne 0
+        log_message "Error executing the model download script."
+        return 1
+    end
+    if test -f "$model_dir/ggml-large-v3-turbo.bin"
+        # Model downloaded directly to the models folder
+        log_message "Model downloaded successfully to $model_dir."
+    else if test -f /tmp/ggml-large-v3-turbo.bin
+        # Fallback: move from /tmp if not directly downloaded
+        mv /tmp/ggml-large-v3-turbo.bin "$MODEL_PATH"
+        if test $status -ne 0
+            log_message "Error moving the downloaded model file from /tmp."
+            return 1
+        end
+    else
+        log_message "Error: ggml-large-v3-turbo.bin not found after download."
+        return 1
+    end
+    return 0
+end
 
 # Function to create the summary by calling ai-summarize.py with the venv python interpreter and saving the result to a file
 function summarize_transcription --argument transcription_file
@@ -85,7 +131,7 @@ function transcribe_file --argument audio_file
     set lock_file "$audio_dir/$base_name.lock"
 
     if test -f "$lock_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "A transcription is already in progress for $audio_file. Skipping."
+        log_message "A transcription is already in progress for $audio_file. Skipping."
         return 0
     end
 
@@ -101,20 +147,20 @@ function transcribe_file --argument audio_file
         set wav_file "$audio_dir/$base_name.wav"
         if test -f "$wav_file"
             rm -f "$wav_file"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Removed existing WAV file: $wav_file (transcription already exists)." >> "$audio_dir/auto_transcribe.log"
+            log_message "Removed existing WAV file: $wav_file (transcription already exists)."
         end
         set audio_source "$audio_file"
     else
         if not string match -q -r '\.wav$' (string lower "$audio_file")
             set wav_file "$audio_dir/$base_name.wav"
             if test -f "$wav_file"
-                echo (date "+%Y-%m-%d %H:%M:%S") "Conversion already performed for $audio_file (existing WAV file: $wav_file)."
+                log_message "Conversion already performed for $audio_file (existing WAV file: $wav_file)."
                 set audio_source "$wav_file"
             else
-                echo (date "+%Y-%m-%d %H:%M:%S") "Converting $audio_file to WAV format..."
+                log_message "Converting $audio_file to WAV format..."
                 ffmpeg -y -i "$audio_file" -af "afftdn, highpass=f=80, lowpass=f=8000, dynaudnorm, acompressor=threshold=-20dB:ratio=3:attack=200:release=1000" -ar 16000 "$wav_file"
                 if test $status -ne 0
-                    echo (date "+%Y-%m-%d %H:%M:%S") "Error converting $audio_file to WAV." >> "$audio_dir/auto_transcribe.log"
+                    log_message "Error converting $audio_file to WAV."
                     rm -f "$lock_file"
                     return 1
                 end
@@ -130,34 +176,16 @@ function transcribe_file --argument audio_file
     # Step 2: Transcription
     # ---------------------------------------------
     if test -f "$transcription_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Transcription already exists for $audio_file ($transcription_file exists)."
+        log_message "Transcription already exists for $audio_file ($transcription_file exists)."
     else
-        echo (date "+%Y-%m-%d %H:%M:%S") "Transcribing $audio_source..."
+        log_message "Transcribing $audio_source..."
         # Verify and set the model path if not defined
         if not set -q MODEL_PATH
             set -x MODEL_PATH "$script_dir/models/ggml-large-v3-turbo.bin"
         end
         if not test -f "$MODEL_PATH"
-            echo (date "+%Y-%m-%d %H:%M:%S") "Model file not found. Downloading..." >> "$audio_dir/auto_transcribe.log"
-            mkdir -p (dirname "$MODEL_PATH")
-            set temp_script /tmp/download-ggml-model.sh
-            curl -L -o "$temp_script" "https://raw.githubusercontent.com/ggerganov/whisper.cpp/refs/heads/master/models/download-ggml-model.sh"
+            download_model
             if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error downloading the model script." >> "$audio_dir/auto_transcribe.log"
-                rm -f "$lock_file"
-                return 1
-            end
-            chmod +x "$temp_script"
-            bash "$temp_script" large-v3
-            if test $status -ne 0
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error executing the model download script." >> "$audio_dir/auto_transcribe.log"
-                rm -f "$lock_file"
-                return 1
-            end
-            if test -f /tmp/ggml-large-v3-turbo.bin
-                mv /tmp/ggml-large-v3-turbo.bin "$MODEL_PATH"
-            else
-                echo (date "+%Y-%m-%d %H:%M:%S") "Error: ggml-large-v3-turbo.bin not found after download." >> "$audio_dir/auto_transcribe.log"
                 rm -f "$lock_file"
                 return 1
             end
@@ -176,8 +204,8 @@ function transcribe_file --argument audio_file
             set load_avg 0
         end
         
-        if test (echo "$load_avg" | awk '{if ($1 > 5.0) print 1; else print 0}') -eq 1
-            echo (date "+%Y-%m-%d %H:%M:%S") "High system load ($load_avg). Transcription deferred for $audio_source." >> "$audio_dir/auto_transcribe.log"
+        if test (echo "$load_avg" | awk -v thresh=$LOAD_THRESHOLD '{if ($1 > thresh) print 1; else print 0}') -eq 1
+            log_message "High system load ($load_avg). Transcription deferred for $audio_source."
             rm -f "$lock_file"
             return 0
         end
@@ -186,7 +214,7 @@ function transcribe_file --argument audio_file
         whisper-cli -olrc \
           -m "$MODEL_PATH" \
           -l fr \
-          --threads 8 \
+          --threads $THREADS \
           --entropy-thold 2.0 \
           --temperature 0.2 \
           --best-of 5 \
@@ -194,7 +222,7 @@ function transcribe_file --argument audio_file
           --max-context 0 \
           -f "$audio_source"
         if test $status -ne 0
-            echo (date "+%Y-%m-%d %H:%M:%S") "Error during transcription of $audio_source." >> "$audio_dir/auto_transcribe.log"
+            log_message "Error during transcription of $audio_source."
             rm -f "$lock_file"
             return 1
         end
@@ -203,7 +231,7 @@ function transcribe_file --argument audio_file
         if test -f "$audio_dir/$base_name.wav.lrc"
             mv "$audio_dir/$base_name.wav.lrc" "$transcription_file"
         else
-            echo (date "+%Y-%m-%d %H:%M:%S") "Error: transcription file not generated for $audio_source." >> "$audio_dir/auto_transcribe.log"
+            log_message "Error: transcription file not generated for $audio_source."
             rm -f "$lock_file"
             return 1
         end
@@ -214,9 +242,9 @@ function transcribe_file --argument audio_file
     # ---------------------------------------------
     set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
     if test -f "$summary_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Summary already exists for $audio_file ($summary_file exists)."
+        log_message "Summary already exists for $audio_file ($summary_file exists)."
     else if test -f "$transcription_file"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Creating summary for $transcription_file..."
+        log_message "Creating summary for $transcription_file..."
         summarize_transcription "$transcription_file"
     end
 
@@ -233,19 +261,19 @@ rotate_log
 begin
     # --- Verify required external commands ---
     if not type -q whisper-cli
-        echo (date "+%Y-%m-%d %H:%M:%S") "Error: command whisper-cli not found in PATH." >> "$audio_dir/auto_transcribe.log"
+        log_message "Error: command whisper-cli not found in PATH."
         exit 1
     end
     if not test -f "$script_dir/ai-summarize.py"
-        echo (date "+%Y-%m-%d %H:%M:%S") "Error: ai-summarize.py not found in script directory ($script_dir)." >> "$audio_dir/auto_transcribe.log"
+        log_message "Error: ai-summarize.py not found in script directory ($script_dir)."
         exit 1
     end
     if not type -q ffmpeg
-        echo (date "+%Y-%m-%d %H:%M:%S") "Error: command ffmpeg not found in PATH." >> "$audio_dir/auto_transcribe.log"
+        log_message "Error: command ffmpeg not found in PATH."
         exit 1
     end
     if not type -q curl
-        echo (date "+%Y-%m-%d %H:%M:%S") "Error: command curl not found in PATH." >> "$audio_dir/auto_transcribe.log"
+        log_message "Error: command curl not found in PATH."
         exit 1
     end
 
@@ -255,7 +283,7 @@ begin
         set old_pid (cat "$global_lock" | string trim)
         if test -n "$old_pid"
             if ps -p $old_pid > /dev/null
-                echo (date "+%Y-%m-%d %H:%M:%S") "An instance is already running (PID $old_pid). Exiting."
+                log_message "An instance is already running (PID $old_pid). Exiting."
                 exit 0
             else
                 rm -f "$global_lock"
@@ -269,12 +297,12 @@ begin
     echo $fish_pid > "$global_lock"
 
     # Log the creation of the global lock
-    echo (date "+%Y-%m-%d %H:%M:%S") "Global lock created ($global_lock) with PID $fish_pid" >> "$log_file"
+    log_message "Global lock created ($global_lock) with PID $fish_pid"
 
     # Set a trap to log and remove the global lock upon exit
-    trap 'echo (date "+%Y-%m-%d %H:%M:%S") "Removing global lock ($global_lock)" >> "$log_file"; rm -f "$global_lock"' EXIT
+    trap 'log_message "Removing global lock ($global_lock)"; rm -f "$global_lock"' EXIT
 
-    # Process all .m4a files in the directory
+    # Process all .m4a and .mp3 files in the directory
     for audio_file in "$audio_dir"/*.m4a
         if test -f "$audio_file"
             set audio_file (rename_if_needed "$audio_file")
