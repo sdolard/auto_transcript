@@ -162,16 +162,37 @@ function transcribe_file --argument audio_file
             end
         end
 
+        # Vérification de la charge système avant la transcription
+        set os (uname)
+        if test "$os" = "Linux"
+            set load_avg (cat /proc/loadavg | cut -d' ' -f1)
+        else if test "$os" = "Darwin"
+            # Sur macOS, utiliser uptime et extraire la valeur load average plus précisément
+            set load_avg (uptime | grep -o "load averages: [0-9.]*" | awk '{print $3}')
+            # Si la commande précédente échoue, essayer une alternative
+            if test -z "$load_avg"
+                set load_avg (uptime | awk -F'[, ]' '{for (i=1; i<=NF; i++) if (index($i, ".") > 0) {print $i; exit}}')
+            end
+        else
+            set load_avg 0
+        end
+        
+        if test (echo "$load_avg" | awk '{if ($1 > 5.0) print 1; else print 0}') -eq 1
+            echo (date "+%Y-%m-%d %H:%M:%S") "Load average is high ($load_avg). Transcription deferred for $audio_source." >> "$audio_dir/auto_transcribe.log"
+            rm -f "$lock_file"
+            return 0
+        end
+
         # Lancer la transcription avec whisper-cli
         whisper-cli -olrc \
           -m "$MODEL_PATH" \
           -l fr \
           --threads 8 \
-          --entropy-thold 1.5 \
-          --temperature 0.0 \
-          --no-fallback \
+          --entropy-thold 2.0 \
+          --temperature 0.2 \
+          --best-of 5 \
           --suppress-nst \
-          --flash-attn \
+          --max-context 0 \ # Still a doubt on this option.
           -f "$audio_source"
         if test $status -ne 0
             echo (date "+%Y-%m-%d %H:%M:%S") "Erreur lors de la transcription de $audio_source." >> "$audio_dir/auto_transcribe_errors.log"
