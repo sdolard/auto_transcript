@@ -17,7 +17,7 @@ def main():
 
     transcription_file = sys.argv[1]
     if len(sys.argv) >= 3:
-        title = sys.argv[2]
+        title = sys.argv[2]  # Le titre sera utilisé comme titre principal du résumé en markdown
     else:
         title = ""
 
@@ -35,8 +35,27 @@ def main():
     try:
         response = client.chat.completions.create(model="gpt-4o-mini-2024-07-18",  # Utilisation du modèle GPT-4o mini
         messages=[
-            {"role": "system", "content": "Tu es un assistant expert en synthèse de textes. S'il te plaît, génère le résumé en markdown en utilisant des titres, sous-titres et listes à puces pour structurer l'information et faciliter la lecture. Si des actions ont été évoquées, elles doivent apparaître dans le résumé en utilisant le même ordre que dans les sections de résumé."},
-            {"role": "user", "content": f"Voici une transcription{(f' du fichier audio {title}' if title else '')}. Résume-la de manière concise et pertinente, et formate le résultat en markdown pour en faciliter la lecture :\n\n{text}"}
+            {
+                "role": "system",
+                "content": (
+                    "Tu es un assistant expert en synthèse de textes. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
+                    "1. Le style doit rester formel mais clair, et viser la concision.\n"
+                    "2. Organise le résumé avec titres, sous-titres et listes à puces.\n"
+                    "3. Si des actions spécifiques sont mentionnées, liste-les dans l’ordre où elles apparaissent, en utilisant des listes numérotées.\n"
+                    "4. Fais ressortir les points importants et conclusifs en les mettant en évidence (par exemple, en gras).\n"
+                    "5. Adapte ta réponse pour qu'elle soit facile à parcourir rapidement tout en restant précise."
+                )
+            },
+            {
+                "role": "user",
+                "content": (
+                    f"Voici une transcription du fichier audio intitulé '{title}'. Résume le contenu de manière concise et pertinente, en commençant ton résumé par '# {title}\n\n'.\n"
+                    "Respecte scrupuleusement les règles énoncées dans le message système.\n\n"
+                    "--- Début de la transcription ---\n"
+                    f"{text}\n"
+                    "--- Fin de la transcription ---"
+                )
+            }
         ],
         temperature=0.5,
         max_tokens=3000)
