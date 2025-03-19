@@ -12,10 +12,15 @@ if os.getenv("OPENAI_API_KEY") is None:
 
 def main():
     if len(sys.argv) < 2:
-        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Error: Usage: ai-summarize <transcription_file>", file=sys.stderr)
+        print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Error: Usage: ai-summarize <transcription_file> [title]", file=sys.stderr)
         sys.exit(1)
 
     transcription_file = sys.argv[1]
+    if len(sys.argv) >= 3:
+        title = sys.argv[2]
+    else:
+        title = ""
+
     if not os.path.exists(transcription_file):
         print(f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')} Error: le fichier {transcription_file} n'existe pas.", file=sys.stderr)
         sys.exit(1)
@@ -31,7 +36,7 @@ def main():
         response = client.chat.completions.create(model="gpt-4o-mini-2024-07-18",  # Utilisation du modèle GPT-4o mini
         messages=[
             {"role": "system", "content": "Tu es un assistant expert en synthèse de textes. S'il te plaît, génère le résumé en markdown en utilisant des titres, sous-titres et listes à puces pour structurer l'information et faciliter la lecture. Si des actions ont été évoquées, elles doivent apparaître dans le résumé en utilisant le même ordre que dans les sections de résumé."},
-            {"role": "user", "content": f"Voici une transcription. Résume-la de manière concise et pertinente, et formate le résultat en markdown pour en faciliter la lecture :\n\n{text}"}
+            {"role": "user", "content": f"Voici une transcription{(f' du fichier audio {title}' if title else '')}. Résume-la de manière concise et pertinente, et formate le résultat en markdown pour en faciliter la lecture :\n\n{text}"}
         ],
         temperature=0.5,
         max_tokens=3000)
