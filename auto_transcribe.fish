@@ -4,8 +4,27 @@
 # Configuration
 # =============================================================================
 
+# Function to detect the number of available CPU cores
+function get_cpu_count
+    set uname (uname)
+    if test "$uname" = "Darwin"
+        # macOS: use sysctl to get logical CPU count
+        sysctl -n hw.ncpu
+    else if test "$uname" = "Linux"
+        # Linux: use nproc if available, fallback to /proc/cpuinfo
+        if command -v nproc >/dev/null
+            nproc
+        else
+            grep -c processor /proc/cpuinfo
+        end
+    else
+        # Default to 4 threads for unknown systems
+        echo 4
+    end
+end
+
 # Constants for configuration
-set THREADS 8
+set THREADS (get_cpu_count)
 set -x OMP_NUM_THREADS $THREADS
 set LOG_MAX_SIZE 5242880  # Log rotation threshold in bytes (5MB)
 set LOAD_THRESHOLD 5    # System load average threshold for deferring transcription
