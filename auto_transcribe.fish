@@ -288,8 +288,6 @@ end
 rotate_log
 
 begin
-    log_message "$THREADS CPU threads available for transcription."
-
     # --- Verify required external commands ---
     if not type -q whisper-cli
         log_message "Error: command whisper-cli not found in PATH."
