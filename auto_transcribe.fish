@@ -7,27 +7,35 @@
 # Function to detect the number of available CPU cores
 function get_cpu_count
     set uname (uname)
+    set cpu_count 4  # Default fallback value
+    
     if test "$uname" = "Darwin"
         # macOS: use sysctl to get logical CPU count
-        sysctl -n hw.ncpu
+        set cpu_count (sysctl -n hw.ncpu 2>/dev/null)
     else if test "$uname" = "Linux"
-        # Linux: use nproc if available, fallback to /proc/cpuinfo
+        # Linux: use nproc --all if available, fallback to /proc/cpuinfo
         if command -v nproc >/dev/null
-            nproc
+            set cpu_count (nproc --all 2>/dev/null)
         else
-            grep -c processor /proc/cpuinfo
+            set cpu_count (grep -c processor /proc/cpuinfo 2>/dev/null)
         end
-    else
-        # Default to 4 threads for unknown systems
-        echo 4
     end
+    
+    # Make sure we have a valid numeric value
+    if not test "$cpu_count" -gt 0 2>/dev/null
+        set cpu_count 2  # Use default if not a positive number
+    end
+    
+    echo $cpu_count
 end
 
 # Constants for configuration
-set THREADS (get_cpu_count)
+# Capture the output of get_cpu_count with command substitution
+set cpu_threads (get_cpu_count)
+set THREADS $cpu_threads
 set -x OMP_NUM_THREADS $THREADS
 set LOG_MAX_SIZE 5242880  # Log rotation threshold in bytes (5MB)
-set LOAD_THRESHOLD 5    # System load average threshold for deferring transcription
+set LOAD_THRESHOLD $cpu_threads  # System load average threshold for deferring transcription
 
 # Directory containing the audio files and their transcriptions
 set audio_dir ~/Transcriptions
@@ -223,7 +231,9 @@ function transcribe_file --argument audio_file
             set load_avg 0
         end
         
-        if test (echo "$load_avg" | awk -v thresh=$LOAD_THRESHOLD '{if ($1 > thresh) print 1; else print 0}') -eq 1
+        # Calculate if load exceeds threshold first, then test the result
+        set load_check (echo "$load_avg" | awk -v thresh=$LOAD_THRESHOLD '{if ($1 > thresh) print 1; else print 0}')
+        if test $load_check -eq 1
             log_message "High system load ($load_avg). Transcription deferred for $audio_source."
             rm -f "$lock_file"
             return 0
@@ -278,6 +288,8 @@ end
 rotate_log
 
 begin
+    log_message "$THREADS CPU threads available for transcription."
+
     # --- Verify required external commands ---
     if not type -q whisper-cli
         log_message "Error: command whisper-cli not found in PATH."
