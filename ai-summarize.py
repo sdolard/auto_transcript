@@ -39,8 +39,8 @@ def main():
             messages=[
                 {
                     "role": "system",
-                    "content": "Tu es un assistant expert en analyse de conversations. Tu reçois la transcription d'une réunion. Détermine la catégorie qui décrit le mieux cette réunion parmi les options suivantes, sans donner d'explications supplémentaires :\n\n1) daily meeting : un court point d'équipe (type stand-up), typiquement de 5 à 15 minutes, consacré au suivi d'avancement de chaque participant sur ses tâches, la mention de difficultés éventuelles (blockers) et la planification immédiate. Il s'agit d'un rendez-vous régulier, souvent quotidien, où chacun partage rapidement son statut.\n2) réunion technique : une réunion centrée sur des problématiques techniques nécessitant une discussion approfondie. Elle peut porter sur le choix ou l'évaluation de solutions d'implémentation, la conception d'architecture, le diagnostic de bugs complexes ou la recherche de solutions outillées. Les participants échangent généralement en détail sur des aspects techniques.\n3) revue de code : une réunion durant laquelle on discute de code, on relève les améliorations possibles, on identifie des bugs, etc.\n4) planning stratégique : une réunion où l'on définit ou revoit les objectifs stratégiques, la feuille de route à long terme, et les décisions à fort impact.\n5) brainstorming : une réunion dédiée à la génération ou à l'exploration d'idées nouvelles ou créatives.\n6) autre : si aucune des catégories ci-dessus ne s'applique.\n\nRetourne uniquement le type de réunion, tel que 'daily meeting', 'réunion technique', 'revue de code', 'planning stratégique', 'brainstorming' ou 'autre', sans explication additionnelle."
-                },
+"content": "Tu es un assistant expert en analyse de conversations. Tu reçois la transcription d'une réunion. Détermine la catégorie qui décrit le mieux cette réunion parmi les options suivantes, sans donner d'explications supplémentaires :\n\n1) daily meeting : un court point d'équipe (type stand-up), typiquement de 5 à 15 minutes, consacré au suivi d'avancement de chaque participant sur ses tâches, à la mention des difficultés éventuelles (blockers) et à la planification immédiate. Il s'agit d'un rendez-vous régulier, souvent quotidien, où chacun partage rapidement son statut.\n2) réunion technique : une réunion centrée sur des problématiques techniques nécessitant une discussion approfondie, par exemple sur le choix ou l'évaluation de solutions d'implémentation, la conception d'architecture, le diagnostic de bugs complexes ou la recherche de solutions outillées. Les échanges sont en détail et ciblés sur des aspects techniques.\n3) revue de code : une réunion durant laquelle on discute de code, on relève les améliorations possibles, on identifie des bugs, etc.\n4) planning stratégique : une réunion où l'on définit ou revoit les objectifs stratégiques, la feuille de route à long terme, et les décisions à fort impact.\n5) brainstorming : une réunion dédiée à la génération ou à l'exploration d'idées nouvelles ou créatives.\n6) autre : si aucune des catégories ci-dessus ne s'applique clairement.\n\nRetourne uniquement le type de réunion parmi : 'daily meeting', 'réunion technique', 'revue de code', 'planning stratégique', 'brainstorming' ou 'autre'."
+},
                 {
                     "role": "user",
                     "content": f"Voici la transcription de la réunion :\n\n{text}"
@@ -60,13 +60,18 @@ def main():
                              "4. Fais ressortir les points importants et conclusifs en les mettant en évidence (par exemple, en gras).\n"
                              "5. Adapte ta réponse pour qu'elle soit facile à parcourir rapidement tout en restant précise.")
         elif conversation_type == "réunion technique":
-            system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de réunions techniques. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n"
+            system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de réunions techniques. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
                              "1. Le style doit rester formel et clair.\n"
-                             "2. Organise le résumé avec titres, sous-titres et listes à puces.\n"
-                             "3. Concentre-toi sur l'identification et la synthèse des points techniques abordés, incluant les problèmes, les solutions proposées et les décisions prises.\n"
-                             "4. Mentionne les technologies, outils et méthodes évoqués.\n"
-                             "5. Si des actions spécifiques sont mentionnées, liste-les dans l’ordre d'apparition, en utilisant des listes numérotées.\n"
-                             "6. Mets en évidence les points critiques et les conclusions en gras.")
+                             "2. Organise le résumé en sections avec titres et sous-titres (par exemple, **Points discutés**, **Décisions prises**, **Actions à entreprendre**).\n"
+                             "3. Concentre-toi sur l’identification et la synthèse des points techniques abordés, incluant :\n"
+                             "   - Les problèmes identifiés,\n"
+                             "   - Les solutions proposées,\n"
+                             "   - Les décisions prises.\n"
+                             "4. Mentionne les technologies, outils, méthodes ou extraits de code évoqués, en les formatant de manière distincte si nécessaire.\n"
+                             "5. Si des actions spécifiques sont mentionnées, liste-les dans l’ordre d'apparition à l’aide de listes numérotées.\n"
+                             "6. Mets en évidence les points critiques et les conclusions en utilisant le gras.\n"
+                             "7. Veille à ce que le résumé soit exhaustif.\n\n"
+                             "Retourne uniquement le résumé en Markdown.")
         elif conversation_type == "revue de code":
             system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de réunions de revue de code. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n"
                              "1. Le style doit rester formel, clair et précis.\n"
