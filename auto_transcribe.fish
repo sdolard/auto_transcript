@@ -11,7 +11,7 @@ function get_cpu_count
     
     if test "$uname" = "Darwin"
         # macOS: use sysctl to get logical CPU count
-        set cpu_count (sysctl -n hw.ncpu 2>/dev/null)
+        set cpu_count (/usr/sbin/sysctl -n hw.ncpu 2>/dev/null)
     else if test "$uname" = "Linux"
         # Linux: use nproc --all if available, fallback to /proc/cpuinfo
         if command -v nproc >/dev/null
