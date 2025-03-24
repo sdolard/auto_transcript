@@ -7,12 +7,12 @@
 # Function to detect the number of available CPU cores
 function get_cpu_count
     set uname (uname)
-    set cpu_count 4  # Default fallback value
-    
-    if test "$uname" = "Darwin"
+    set cpu_count 4 # Default fallback value
+
+    if test "$uname" = Darwin
         # macOS: use sysctl to get logical CPU count
         set cpu_count (/usr/sbin/sysctl -n hw.ncpu 2>/dev/null)
-    else if test "$uname" = "Linux"
+    else if test "$uname" = Linux
         # Linux: use nproc --all if available, fallback to /proc/cpuinfo
         if command -v nproc >/dev/null
             set cpu_count (nproc --all 2>/dev/null)
@@ -20,12 +20,12 @@ function get_cpu_count
             set cpu_count (grep -c processor /proc/cpuinfo 2>/dev/null)
         end
     end
-    
+
     # Make sure we have a valid numeric value
     if not test "$cpu_count" -gt 0 2>/dev/null
-        set cpu_count 2  # Use default if not a positive number
+        set cpu_count 2 # Use default if not a positive number
     end
-    
+
     echo $cpu_count
 end
 
@@ -34,8 +34,8 @@ end
 set cpu_threads (get_cpu_count)
 set THREADS $cpu_threads
 set -x OMP_NUM_THREADS $THREADS
-set LOG_MAX_SIZE 5242880  # Log rotation threshold in bytes (5MB)
-set LOAD_THRESHOLD $cpu_threads  # System load average threshold for deferring transcription
+set LOG_MAX_SIZE 5242880 # Log rotation threshold in bytes (5MB)
+set LOAD_THRESHOLD $cpu_threads # System load average threshold for deferring transcription
 
 # Directory containing the audio files and their transcriptions
 set audio_dir ~/Transcriptions
@@ -48,7 +48,7 @@ set script_dir (dirname (status -f))
 function log_message
     # Logs a message with a timestamp to the log file
     set message $argv
-    echo (date "+%Y-%m-%d %H:%M:%S") $message >> "$log_file"
+    echo (date "+%Y-%m-%d %H:%M:%S") $message >>"$log_file"
 end
 
 # =============================================================================
@@ -59,9 +59,9 @@ end
 function rotate_log
     if test -f "$log_file"
         set uname (uname)
-        if test "$uname" = "Darwin"
+        if test "$uname" = Darwin
             set filesize (stat -f%z "$log_file")
-        else if test "$uname" = "Linux"
+        else if test "$uname" = Linux
             set filesize (stat -c%s "$log_file")
         else
             set filesize (stat -f%z "$log_file")
@@ -148,7 +148,7 @@ end
 function summarize_transcription --argument transcription_file
     set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
     set base_title (basename "$transcription_file" .lrc)
-    "$script_dir/venv/bin/python3" "$script_dir/ai-summarize.py" "$transcription_file" "$base_title" > "$summary_file"
+    "$script_dir/venv/bin/python3" "$script_dir/ai-summarize.py" "$transcription_file" "$base_title" >"$summary_file"
 end
 
 # Transcribe an audio file
@@ -220,9 +220,9 @@ function transcribe_file --argument audio_file
 
         # Check system load before transcription
         set os (uname)
-        if test "$os" = "Linux"
+        if test "$os" = Linux
             set load_avg (cat /proc/loadavg | cut -d' ' -f1)
-        else if test "$os" = "Darwin"
+        else if test "$os" = Darwin
             set load_avg (uptime | grep -o "load averages: [0-9.]*" | awk '{print $3}')
             if test -z "$load_avg"
                 set load_avg (uptime | awk -F'[, ]' '{for (i=1; i<=NF; i++) if (index($i, ".") > 0) {print $i; exit}}')
@@ -230,7 +230,7 @@ function transcribe_file --argument audio_file
         else
             set load_avg 0
         end
-        
+
         # Calculate if load exceeds threshold first, then test the result
         set load_check (echo "$load_avg" | awk -v thresh=$LOAD_THRESHOLD '{if ($1 > thresh) print 1; else print 0}')
         if test $load_check -eq 1
@@ -241,15 +241,15 @@ function transcribe_file --argument audio_file
 
         # Run transcription with whisper-cli
         whisper-cli -olrc \
-          -m "$MODEL_PATH" \
-          -l fr \
-          --threads $THREADS \
-          --entropy-thold 2.0 \
-          --temperature 0.2 \
-          --best-of 5 \
-          --suppress-nst \
-          --max-context 0 \
-          -f "$audio_source"
+            -m "$MODEL_PATH" \
+            -l fr \
+            --threads $THREADS \
+            --entropy-thold 2.0 \
+            --temperature 0.2 \
+            --best-of 5 \
+            --suppress-nst \
+            --max-context 0 \
+            -f "$audio_source"
         if test $status -ne 0
             log_message "Error during transcription of $audio_source."
             rm -f "$lock_file"
@@ -311,7 +311,7 @@ begin
     if test -f "$global_lock"
         set old_pid (cat "$global_lock" | string trim)
         if test -n "$old_pid"
-            if ps -p $old_pid > /dev/null
+            if ps -p $old_pid >/dev/null
                 log_message "An instance is already running (PID $old_pid). Exiting."
                 exit 0
             else
@@ -323,7 +323,7 @@ begin
     end
 
     # Save the current PID into the lock file
-    echo $fish_pid > "$global_lock"
+    echo $fish_pid >"$global_lock"
 
     # Log the creation of the global lock
     log_message "Global lock created ($global_lock) with PID $fish_pid"
@@ -339,4 +339,4 @@ begin
         end
     end
 
-end >> "$log_file" 2>&1
+end >>"$log_file" 2>&1
