@@ -53,12 +53,15 @@ def main():
 
         # Choix du prompt adapté en fonction du type de conversation
         if conversation_type == "daily meeting":
-            system_prompt = ("Tu es un assistant expert en synthèse de textes. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
-                             "1. Le style doit rester formel mais clair, et viser la concision.\n"
-                             "2. Organise le résumé avec titres, sous-titres et listes à puces.\n"
-                             "3. Si des actions spécifiques sont mentionnées, liste-les dans l’ordre où elles apparaissent, en utilisant des listes numérotées.\n"
-                             "4. Fais ressortir les points importants et conclusifs en les mettant en évidence (par exemple, en gras).\n"
-                             "5. Adapte ta réponse pour qu'elle soit facile à parcourir rapidement tout en restant précise.")
+            system_prompt = ("Tu es un assistant expert en synthèse de textes. Ta mission est de produire un résumé détaillé sous forme Markdown pour un daily meeting, en respectant strictement ces consignes :\n\n"
+                             "1. Le style doit rester formel mais clair.\n"
+                             "2. Organise le résumé en sections distinctes, par exemple :\n"
+                             "   - **Mise à jour individuelle** : Résume le statut de chaque participant.\n"
+                             "   - **Blocages** : Liste brièvement les difficultés ou obstacles mentionnés.\n"
+                             "   - **Actions à entreprendre** : Détaille les points ou tâches à suivre, sous forme de liste numérotée.\n"
+                             "3. Utilise des titres et sous-titres ainsi que des listes à puces pour structurer clairement le résumé.\n"
+                             "4. Mets en évidence les points importants et les conclusions en utilisant le gras.\n"
+                             "5. Retourne uniquement le résumé en Markdown.")
         elif conversation_type == "réunion technique":
             system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de réunions techniques. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
                              "1. Le style doit rester formel et clair.\n"
