@@ -39,7 +39,7 @@ def main():
             messages=[
                 {
                     "role": "system",
-"content": "Tu es un assistant expert en analyse de conversations. Tu reçois la transcription d'une réunion ainsi que le titre du fichier correspondant. Détermine la catégorie qui décrit le mieux cette réunion parmi les options suivantes, sans donner d'explications supplémentaires, et utilise également le titre du fichier comme indicateur supplémentaire :\n\n1) daily meeting : un point d'équipe (type stand-up), consacré au suivi d'avancement de chaque participant sur ses tâches, à la mention des difficultés éventuelles (blockers) et à la planification immédiate. Il s'agit d'un rendez-vous régulier, souvent quotidien, où chacun partage rapidement son statut.\n2) réunion technique : une réunion centrée sur des problématiques techniques nécessitant une discussion approfondie, par exemple sur le choix ou l'évaluation de solutions d'implémentation, la conception d'architecture, le diagnostic de bugs complexes ou la recherche de solutions outillées. Les échanges sont en détail et ciblés sur des aspects techniques.\n3) revue de code : une réunion durant laquelle on discute de code, on relève les améliorations possibles, on identifie des bugs, etc.\n4) planning stratégique : une réunion où l'on définit ou revoit les objectifs stratégiques, la feuille de route à long terme, et les décisions à fort impact.\n5) brainstorming : une réunion dédiée à la génération ou à l'exploration d'idées nouvelles ou créatives.\n6) autre : si aucune des catégories ci-dessus ne s'applique clairement.\n\nRetourne uniquement le type de réunion parmi : 'daily meeting', 'réunion technique', 'revue de code', 'planning stratégique', 'brainstorming' ou 'autre'."
+"content": "Tu es un assistant expert en analyse de conversations. Tu reçois la transcription d'une réunion ainsi que le titre du fichier correspondant. Détermine la catégorie qui décrit le mieux cette réunion parmi les options suivantes, sans donner d'explications supplémentaires, et utilise également le titre du fichier comme indicateur supplémentaire :\n\n1) daily meeting : un point d'équipe (type stand-up), consacré au suivi d'avancement de chaque participant sur ses tâches, à la mention des difficultés éventuelles (blockers) et à la planification immédiate. Il s'agit d'un rendez-vous régulier, souvent quotidien.\n2) réunion technique : une réunion centrée sur des problématiques techniques nécessitant une discussion approfondie, par exemple sur le choix ou l'évaluation de solutions d'implémentation, la conception d'architecture, le diagnostic de bugs complexes ou la recherche de solutions outillées. Les échanges sont en détail et ciblés sur des aspects techniques.\n3) revue de code : une réunion durant laquelle on discute de code, on relève les améliorations possibles, on identifie des bugs, etc.\n4) planning stratégique : une réunion où l'on définit ou revoit les objectifs stratégiques, la feuille de route à long terme, et les décisions à fort impact.\n5) brainstorming : une réunion dédiée à la génération ou à l'exploration d'idées nouvelles ou créatives.\n6) rétrospective agile : une réunion d'analyse post-sprint visant à identifier ce qui a bien fonctionné et les axes d'amélioration.\n7) comité de direction : une réunion de haut niveau axée sur la prise de décisions stratégiques, l'analyse de performance et la gestion des ressources.\n8) atelier collaboratif : une réunion orientée vers la co-création et l'innovation, centrée sur la génération d'idées et la résolution collaborative de problèmes.\n9) réunion d'information : une session dédiée à la diffusion d'informations ou à la formation, où l'objectif est de transmettre des connaissances ou des mises à jour.\n10) autre : si aucune des catégories ci-dessus ne s'applique clairement.\n\nRetourne uniquement le type de réunion parmi : 'daily meeting', 'réunion technique', 'revue de code', 'planning stratégique', 'brainstorming', 'rétrospective agile', 'comité de direction', 'atelier collaboratif', 'réunion d'information' ou 'autre'."
 },
                 {
                     "role": "user",
@@ -90,6 +90,7 @@ def main():
                              "3. Concentre-toi sur les objectifs stratégiques, les enjeux, les décisions clés et les actions à mener.\n"
                              "4. Liste les actions spécifiques dans l’ordre d'apparition, en utilisant des listes numérotées.\n"
                              "5. Mets en évidence les points importants et les conclusions en gras.")
+
         elif conversation_type == "brainstorming":
             system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de séances de brainstorming. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n"
                              "1. Le style doit rester formel mais créatif et ouvert.\n"
@@ -97,6 +98,46 @@ def main():
                              "3. Concentre-toi sur la synthèse des idées, des suggestions et des propositions évoquées.\n"
                              "4. Si des actions spécifiques ou des pistes d'action sont mentionnées, liste-les dans l’ordre d'apparition, en utilisant des listes numérotées.\n"
                              "5. Mets en évidence les idées les plus innovantes ou marquantes en gras.")
+        elif conversation_type == "rétrospective agile":
+            system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de rétrospectives agiles. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
+                             "1. Le style doit rester formel et clair.\n"
+                             "2. Organise le résumé en sections distinctes, par exemple :\n"
+                             "   - **Ce qui a bien fonctionné** : Résume les points positifs du sprint.\n"
+                             "   - **Axes d'amélioration** : Liste les difficultés ou obstacles rencontrés.\n"
+                             "   - **Actions d'amélioration** : Détaille les actions à entreprendre pour améliorer le prochain sprint, sous forme de liste numérotée.\n"
+                             "3. Utilise des titres et sous-titres ainsi que des listes à puces pour structurer le résumé.\n"
+                             "4. Mets en évidence les points importants et les conclusions en utilisant le gras.\n"
+                             "5. Retourne uniquement le résumé en Markdown.")
+        elif conversation_type == "comité de direction":
+            system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de réunions de comité de direction. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
+                             "1. Le style doit rester formel et orienté vers la stratégie.\n"
+                             "2. Organise le résumé en sections distinctes, par exemple :\n"
+                             "   - **Décisions stratégiques** : Résume les décisions prises lors de la réunion.\n"
+                             "   - **Analyse de performance** : Mentionne les points clés liés à l'analyse de la performance et à la gestion des ressources.\n"
+                             "   - **Propositions d'actions** : Détaille les actions ou propositions de suivi, sous forme de liste numérotée.\n"
+                             "3. Utilise des titres, sous-titres et listes à puces pour structurer le résumé.\n"
+                             "4. Mets en évidence les points critiques et les conclusions en gras.\n"
+                             "5. Retourne uniquement le résumé en Markdown.")
+        elif conversation_type == "atelier collaboratif":
+            system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse d'ateliers collaboratifs. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
+                             "1. Le style doit rester formel et collaboratif.\n"
+                             "2. Organise le résumé en sections distinctes, par exemple :\n"
+                             "   - **Idées générées** : Résume les idées et suggestions émises lors de l'atelier.\n"
+                             "   - **Discussions clés** : Liste les échanges importants ou les débats marquants.\n"
+                             "   - **Actions à entreprendre** : Détaille les prochaines étapes ou tâches identifiées, sous forme de liste numérotée.\n"
+                             "3. Utilise des titres, sous-titres et listes à puces pour structurer le résumé.\n"
+                             "4. Mets en évidence les points innovants en utilisant le gras.\n"
+                             "5. Retourne uniquement le résumé en Markdown.")
+        elif conversation_type == "réunion d'information":
+            system_prompt = ("Tu es un assistant expert en synthèse de textes et en analyse de réunions d'information ou de formation. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
+                             "1. Le style doit rester formel et pédagogique.\n"
+                             "2. Organise le résumé en sections distinctes, par exemple :\n"
+                             "   - **Objectifs** : Résume les objectifs ou les points clés de la session.\n"
+                             "   - **Contenu présenté** : Liste les informations ou les concepts abordés.\n"
+                             "   - **Questions/Réponses** : Mentionne brièvement les questions posées et les réponses fournies.\n"
+                             "3. Utilise des titres, sous-titres et listes à puces pour structurer le résumé.\n"
+                             "4. Mets en évidence les points essentiels en utilisant le gras.\n"
+                             "5. Retourne uniquement le résumé en Markdown.")
         else:
             # Prompt par défaut
             system_prompt = ("Tu es un assistant expert en synthèse de textes. Ta mission est de produire un résumé détaillé sous forme Markdown, en respectant ces consignes :\n\n"
