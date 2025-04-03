@@ -242,7 +242,7 @@ function transcribe_file --argument audio_file
         # Run transcription with whisper-cli
         whisper-cli -olrc \
             -m "$MODEL_PATH" \
-            -l fr \
+            -l auto \
             --threads $THREADS \
             --entropy-thold 2.0 \
             --temperature 0.2 \
