@@ -146,15 +146,15 @@ end
 
 # Function to create the summary by calling ai-summarize.py with the venv python interpreter and saving the result to a file
 function summarize_transcription --argument transcription_file
-    set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
-    set base_title (basename "$transcription_file" .lrc)
+    set summary_file (string replace -r '\.txt$' '.summary.md' "$transcription_file")
+    set base_title (basename "$transcription_file" .txt)
     "$script_dir/venv/bin/python3" "$script_dir/ai-summarize.py" "$transcription_file" "$base_title" >"$summary_file"
 end
 
 # Transcribe an audio file
 function transcribe_file --argument audio_file
     set base_name (get_base_name "$audio_file")
-    set transcription_file "$audio_dir/$base_name.lrc"
+    set transcription_file "$audio_dir/$base_name.txt"
     set lock_file "$audio_dir/$base_name.lock"
 
     if test -f "$lock_file"
@@ -264,12 +264,18 @@ function transcribe_file --argument audio_file
             rm -f "$lock_file"
             return 1
         end
+
+        # Rename .lrc file to .txt file
+        set txt_file (string replace -r '\.lrc$' '.txt' "$transcription_file")
+        mv "$transcription_file" "$txt_file"
+        log_message "Transcription file renamed from $transcription_file to $txt_file"
+        set transcription_file "$txt_file"
     end
 
     # ---------------------------------------------
     # Step 3: Create Summary
     # ---------------------------------------------
-    set summary_file (string replace -r '\.lrc$' '.summary.md' "$transcription_file")
+    set summary_file (string replace -r '\.txt$' '.summary.md' "$transcription_file")
     if test -f "$summary_file"
         log_message "Summary already exists for $audio_file ($summary_file exists)."
     else if test -f "$transcription_file"
